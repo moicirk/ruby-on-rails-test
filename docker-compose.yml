@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: rails_app
+      POSTGRES_USER: rails_user
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:8
+    restart: always
+    ports:
+      - "6379:6379"
+
+  web:
+    image: bitnami/rails:8.0.2
+    restart: always
+    environment:
+      - RAILS_ENV=development
+      - RAILS_DATABASE_HOST=db
+      - RAILS_DATABASE_PORT=5432
+      - RAILS_DATABASE_NAME=rails_app
+      - RAILS_DATABASE_USERNAME=rails_user
+      - RAILS_DATABASE_PASSWORD=secret
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    command: bash -c "bundle install && rails server -b 0.0.0.0 -p 3000"
+
+  sidekiq:
+    image: bitnami/rails:8.0.2
+    restart: always
+    depends_on:
+      - db
+      - redis
+    environment:
+      - RAILS_ENV=development
+      - RAILS_DATABASE_HOST=db
+      - RAILS_DATABASE_NAME=rails_app
+      - RAILS_DATABASE_USERNAME=rails_user
+      - RAILS_DATABASE_PASSWORD=secret
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+    command: bundle exec sidekiq
+
+volumes:
+  pg_data:
